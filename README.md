@@ -27,3 +27,6 @@
    ```bash
    docker-compose up -d
    ```
+3. **Linux команды:**
+   - Поиск по содержимому файлов (grep)
+   👉 **[task3_grep.md](./task3_grep.md)**

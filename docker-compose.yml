@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # ─────────────────────────────────────────────────────
+  # MariaDB — база данных
+  # ─────────────────────────────────────────────────────
+  mariadb:
+    image: mariadb:10.11
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────────────
+  # backend1 — бэкенд-приложение
+  # ─────────────────────────────────────────────────────
+  backend1:
+    build: ./backend
+    container_name: backend1
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT}:80"
+    networks:
+      - app-network
+
+  # ─────────────────────────────────────────────────────
+  # php — PHP-обработчик
+  # ─────────────────────────────────────────────────────
+  php:
+    image: php:8.2-apache
+    container_name: php
+    restart: unless-stopped
+    ports:
+      - "${PHP_PORT}:80"
+    volumes:
+      - ./php-app:/var/www/html
+    networks:
+      - app-network
+
+  # ─────────────────────────────────────────────────────
+  # nginx — веб-сервер / обратный прокси
+  # ─────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    depends_on:
+      - php
+      - backend1
+    ports:
+      - "${NGINX_PORT}:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    networks:
+      - app-network
+
+# ─────────────────────────────────────────────────────
+# Сети: изолированная внутренняя сеть для сервисов
+# ─────────────────────────────────────────────────────
+networks:
+  app-network:
+    driver: bridge
+
+# ─────────────────────────────────────────────────────
+# Тома: постоянное хранение данных
+# ─────────────────────────────────────────────────────
+volumes:
+  db_data:
